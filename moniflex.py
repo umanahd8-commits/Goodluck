@@ -258,6 +258,14 @@ def admin_panel_markup():
     )
     return markup
 
+# DEBUG: Log ALL messages
+@bot.message_handler(func=lambda m: True)
+def debug_all_messages(m):
+    user_id = m.from_user.id
+    is_admin = user_id in ADMIN_IDS
+    print(f"🔍 Message from {'ADMIN' if is_admin else 'USER'} {user_id}: '{m.text}'")
+    # Let other handlers process it
+
 # ---------- HANDLERS (EXACTLY THE SAME AS YOUR ORIGINAL) ----------
 @bot.message_handler(commands=['start'])
 def handle_start(m: types.Message):
