@@ -1116,12 +1116,19 @@ if __name__ == "__main__":
         bot_info = bot.get_me()
         print(f"✅ Bot connected: @{bot_info.username} - ID: {bot_info.id}")
         
+        # Test sending a message to yourself
+        try:
+            bot.send_message(ADMIN_IDS[0], "🤖 Bot started successfully on Render!")
+            print("✅ Test message sent to admin")
+        except Exception as e:
+            print(f"⚠️ Could not send test message: {e}")
+        
         # Start polling
         print("🤖 Starting bot polling...")
-        bot.infinity_polling(skip_pending=True, timeout=60, restart_on_change=True)
+        bot.infinity_polling(skip_pending=True, timeout=60)
         
     except Exception as e:
         print(f"❌ Startup failed: {e}")
         import traceback
         traceback.print_exc()
-        time.sleep(10)
+        time.sleep(30)  # Wait longer before exit
