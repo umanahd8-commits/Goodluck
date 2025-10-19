@@ -35,17 +35,6 @@ HELP_SUPPORT_URL = "https://t.me/MONIFLEXBOT1"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# DEBUG HANDLER - Add this before all other handlers
-@bot.message_handler(func=lambda m: True)
-def debug_all_messages(m):
-    print(f"🔍 RAW MESSAGE: '{m.text}' from user {m.from_user.id}")
-    # Don't process here, let other handlers take over
-
-# Then keep your existing handlers...
-@bot.message_handler(commands=['start'])
-def handle_start(m: types.Message):
-    print(f"🔍 /start command received from user: {m.from_user.id}")
-    # ... your existing start code
 
 # ---------- DB HELPERS (POSTGRESQL FOR RENDER) ----------
 def get_db_connection():
@@ -266,124 +255,89 @@ def debug_all_messages(m):
     print(f"🔍 Message from {'ADMIN' if is_admin else 'USER'} {user_id}: '{m.text}'")
     # Let other handlers process it
 
-# ---------- HANDLERS (EXACTLY THE SAME AS YOUR ORIGINAL) ----------
-@bot.message_handler(commands=['start'])
-def handle_start(m: types.Message):
-    print(f"🔍 /start command received from user: {m.from_user.id}")
-    ensure_user(m.from_user)
-    
-    args = m.text.split()
-    if len(args) > 1:
-        try:
-            referrer = int(args[1])
-            if referrer != m.from_user.id:
-                db_execute("UPDATE users SET referrer_id = %s WHERE user_id = %s AND referrer_id IS NULL", (referrer, m.from_user.id), commit=True)
-                print(f"🔗 Referral detected: {referrer} -> {m.from_user.id}")
-        except Exception as e:
-            print(f"⚠️ Referral error: {e}")
+# ========== SIMPLE FIX - REPLACE ALL MESSAGE HANDLERS ==========
 
-    user_row = get_user_row(m.from_user.id)
-    print(f"👤 User data: {user_row}")
-    
-    welcome_txt = (
-        f"👋 Welcome, {m.from_user.first_name}!\n\n"
-        f"To start using this bot you MUST pay a registration fee of ₦{JOIN_FEE:,}.\n\n"
-        "👉 How to pay:\n"
-        f"{BANK_ACCOUNT_INFO}\n\n"
-        "After payment, upload your payment receipt using the 'Deposit / Pay Fee' button. Admin will verify & approve.\n\n"
-        "If someone referred you, they will receive a referral bonus once your payment is approved.\n\n"
-        "Have questions? Tap Help / Support."
-    )
-    inline = types.InlineKeyboardMarkup()
-    inline.add(types.InlineKeyboardButton("🔔 Join Updates Channel", url=UPDATES_CHANNEL_URL))
-    inline.add(types.InlineKeyboardButton("📩 Help & Support", url=HELP_SUPPORT_URL))
-    
-    if user_row and user_row[4] == 0:
-        print("📤 Sending welcome message to unregistered user")
-        bot.send_message(m.chat.id, welcome_txt, reply_markup=main_menu_markup_for(m.from_user.id))
-        bot.send_message(m.chat.id, "Join our updates or contact support:", reply_markup=inline)
-    else:
-        print("📤 Sending welcome back message to registered user")
-        bot.send_message(m.chat.id, "Welcome back! Use the menu below.", reply_markup=main_menu_markup_for(m.from_user.id))
-        bot.send_message(m.chat.id, "Join our updates or contact support:", reply_markup=inline)
-
-@bot.message_handler(commands=['help', 'start_help'])
-def help_cmd(m):
-    ensure_user(m.from_user)
-    txt = (
-        "ℹ️ *How this bot works*\n\n"
-        f"• Registration fee: ₦{JOIN_FEE:,} (required to unlock earning features).\n"
-        f"• Referral bonus: ₦{REFERRAL_BONUS:,} for each friend who pays. VIPs earn ₦{VIP_REFERRAL_BONUS:,} per referral.\n"
-        f"• Minimum withdrawal: ₦{MIN_WITHDRAW:,}.\n\n"
-        "Steps to start:\n1) Tap *Deposit / Pay Fee* and upload your payment receipt.\n2) Confirm the amount when asked.\n3) Admin will verify & approve your deposit.\n\n"
-        "After approval you'll be able to use referrals, purchase VIP, spin, and request withdrawals.\n\n"
-        "Admins: use /adminpanel to manage members, deposits and withdrawals."
-    )
-    inline = types.InlineKeyboardMarkup()
-    inline.add(types.InlineKeyboardButton("📩 Contact Support", url=HELP_SUPPORT_URL))
-    bot.send_message(m.chat.id, txt, parse_mode="Markdown", reply_markup=inline)
-
-# ADMIN COMMANDS (EXACTLY THE SAME)
-@bot.message_handler(commands=['adminpanel'])
-def admin_panel(m):
-    if not user_is_admin(m.from_user.id):
-        bot.send_message(m.chat.id, "❌ Unauthorized. You are not an admin.")
-        return
-    bot.send_message(m.chat.id, "🛠 *Admin Panel* - Select an option below:", 
-                    parse_mode="Markdown", reply_markup=admin_panel_markup())
-
-@bot.message_handler(commands=['debug_admin'])
-def debug_admin(m):
+@bot.message_handler(func=lambda m: True)
+def handle_all_messages(m):
     user_id = m.from_user.id
-    is_admin = user_is_admin(user_id)
-    bot.send_message(m.chat.id, 
-                    f"🔍 *Debug Info*\n\n"
-                    f"👤 Your User ID: `{user_id}`\n"
-                    f"🛠 Admin Status: `{is_admin}`\n"
-                    f"📋 Configured Admins: `{ADMIN_IDS}`",
-                    parse_mode="Markdown")
+    text = m.text or ""
+    
+    print(f"🔍 Received: '{text}' from user {user_id}")
+    
+    # Handle commands
+    if text.startswith('/'):
+        if text == '/start':
+            handle_start_simple(m)
+        elif text == '/adminpanel' and user_id in ADMIN_IDS:
+            handle_admin_panel(m)
+        elif text == '/balance':
+            handle_balance_simple(m)
+        else:
+            bot.send_message(m.chat.id, "❌ Unknown command. Use /start")
+    
+    # Handle button presses
+    elif text == "💰 My Balance":
+        handle_balance_simple(m)
+    elif text == "👥 Refer & Earn":
+        handle_refer_simple(m)
+    elif text == "💳 Deposit / Pay Fee":
+        handle_deposit_simple(m)
+    elif text == "🎰 Lucky Spin":
+        handle_spin_simple(m)
+    elif text == "⭐ VIP Upgrade":
+        handle_vip_simple(m)
+    elif text == "💵 Withdraw":
+        handle_withdraw_simple(m)
+    elif text == "ℹ️ Help / Support":
+        handle_help_simple(m)
+    else:
+        handle_fallback_simple(m)
 
-@bot.message_handler(commands=['admin_add_balance'])
-def admin_add_balance(m):
-    if not user_is_admin(m.from_user.id):
-        bot.send_message(m.chat.id, "❌ Unauthorized.")
-        return
-    parts = m.text.split()
-    if len(parts) != 3:
-        bot.send_message(m.chat.id, "Usage: /admin_add_balance <user_id> <amount>")
-        return
-    try:
-        uid = int(parts[1])
-        amt = int(parts[2])
-        db_execute("UPDATE users SET balance = balance + %s WHERE user_id = %s", (amt, uid), commit=True)
-        bot.send_message(m.chat.id, f"✅ Added ₦{amt:,} to user {uid}.")
-        try:
-            bot.send_message(uid, f"💰 Admin added ₦{amt:,} to your account.")
-        except:
-            pass
-    except Exception:
-        bot.send_message(m.chat.id, "❌ Invalid input. Usage: /admin_add_balance <user_id> <amount>")
+# Simple versions of your functions
+def handle_start_simple(m):
+    ensure_user(m.from_user)
+    welcome = f"👋 Welcome, {m.from_user.first_name}!\n\nPay ₦{JOIN_FEE:,} to register and start earning!"
+    bot.send_message(m.chat.id, welcome, reply_markup=main_menu_markup_for(m.from_user.id))
 
-@bot.message_handler(commands=['admin_block'])
-def admin_block(m):
-    if not user_is_admin(m.from_user.id):
-        bot.send_message(m.chat.id, "❌ Unauthorized.")
-        return
-    parts = m.text.split()
-    if len(parts) != 2:
-        bot.send_message(m.chat.id, "Usage: /admin_block <user_id>")
-        return
-    try:
-        uid = int(parts[1])
-        db_execute("UPDATE users SET is_registered = 0 WHERE user_id = %s", (uid,), commit=True)
-        bot.send_message(m.chat.id, f"✅ User {uid} has been blocked/unregistered.")
-        try:
-            bot.send_message(uid, "❌ Your account has been blocked by admin. Contact support for details.")
-        except:
-            pass
-    except:
-        bot.send_message(m.chat.id, "❌ Invalid user ID.")
+def handle_balance_simple(m):
+    ensure_user(m.from_user)
+    user = get_user_row(m.from_user.id)
+    balance = user[3] if user else 0
+    bot.send_message(m.chat.id, f"💰 Your balance: ₦{balance:,}")
 
+def handle_refer_simple(m):
+    ensure_user(m.from_user)
+    invite_link = f"https://t.me/{bot.get_me().username}?start={m.from_user.id}"
+    bot.send_message(m.chat.id, f"🤝 Refer friends: {invite_link}")
+
+def handle_deposit_simple(m):
+    ensure_user(m.from_user)
+    bot.send_message(m.chat.id, f"💳 Send ₦{JOIN_FEE:,} to:\n{BANK_ACCOUNT_INFO}")
+
+def handle_spin_simple(m):
+    ensure_user(m.from_user)
+    bot.send_message(m.chat.id, "🎰 Spin feature coming soon!")
+
+def handle_vip_simple(m):
+    ensure_user(m.from_user)
+    bot.send_message(m.chat.id, f"⭐ VIP upgrade: ₦{VIP_UPGRADE_COST:,}")
+
+def handle_withdraw_simple(m):
+    ensure_user(m.from_user)
+    bot.send_message(m.chat.id, f"💵 Withdraw minimum: ₦{MIN_WITHDRAW:,}")
+
+def handle_help_simple(m):
+    bot.send_message(m.chat.id, "📞 Contact support for help")
+
+def handle_admin_panel(m):
+    if m.from_user.id in ADMIN_IDS:
+        bot.send_message(m.chat.id, "🛠 Admin Panel", reply_markup=admin_panel_markup())
+
+def handle_fallback_simple(m):
+    bot.send_message(m.chat.id, "Use the menu buttons below 👇", reply_markup=main_menu_markup_for(m.from_user.id))
+
+# KEEP ALL YOUR EXISTING: callback handlers, database functions, and the web server code
+# ONLY REPLACE THE MESSAGE HANDLERS
 # REGULAR MESSAGE HANDLERS (EXACTLY THE SAME)
 @bot.message_handler(regexp=r"^ℹ️ Help / Support$")
 def help_support_button(m):
