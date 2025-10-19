@@ -249,17 +249,22 @@ def admin_panel_markup():
 # ---------- HANDLERS (EXACTLY THE SAME AS YOUR ORIGINAL) ----------
 @bot.message_handler(commands=['start'])
 def handle_start(m: types.Message):
+    print(f"🔍 /start command received from user: {m.from_user.id}")
     ensure_user(m.from_user)
+    
     args = m.text.split()
     if len(args) > 1:
         try:
             referrer = int(args[1])
             if referrer != m.from_user.id:
                 db_execute("UPDATE users SET referrer_id = %s WHERE user_id = %s AND referrer_id IS NULL", (referrer, m.from_user.id), commit=True)
-        except:
-            pass
+                print(f"🔗 Referral detected: {referrer} -> {m.from_user.id}")
+        except Exception as e:
+            print(f"⚠️ Referral error: {e}")
 
     user_row = get_user_row(m.from_user.id)
+    print(f"👤 User data: {user_row}")
+    
     welcome_txt = (
         f"👋 Welcome, {m.from_user.first_name}!\n\n"
         f"To start using this bot you MUST pay a registration fee of ₦{JOIN_FEE:,}.\n\n"
@@ -274,9 +279,11 @@ def handle_start(m: types.Message):
     inline.add(types.InlineKeyboardButton("📩 Help & Support", url=HELP_SUPPORT_URL))
     
     if user_row and user_row[4] == 0:
+        print("📤 Sending welcome message to unregistered user")
         bot.send_message(m.chat.id, welcome_txt, reply_markup=main_menu_markup_for(m.from_user.id))
         bot.send_message(m.chat.id, "Join our updates or contact support:", reply_markup=inline)
     else:
+        print("📤 Sending welcome back message to registered user")
         bot.send_message(m.chat.id, "Welcome back! Use the menu below.", reply_markup=main_menu_markup_for(m.from_user.id))
         bot.send_message(m.chat.id, "Join our updates or contact support:", reply_markup=inline)
 
