@@ -1103,23 +1103,25 @@ if __name__ == "__main__":
     # Start web server thread
     web_thread = threading.Thread(target=run_web_server, daemon=True)
     web_thread.start()
-    
-    # Wait a moment for web server to start
     time.sleep(2)
     
     try:
         # Initialize database
+        print("🔄 Initializing database...")
         init_db()
         print("✅ Database initialized")
         
         # Test Telegram connection
+        print("🔗 Testing Telegram connection...")
         bot_info = bot.get_me()
-        print(f"✅ Bot connected: @{bot_info.username}")
+        print(f"✅ Bot connected: @{bot_info.username} - ID: {bot_info.id}")
         
         # Start polling
         print("🤖 Starting bot polling...")
-        bot.infinity_polling(skip_pending=True, timeout=60)
+        bot.infinity_polling(skip_pending=True, timeout=60, restart_on_change=True)
         
     except Exception as e:
         print(f"❌ Startup failed: {e}")
+        import traceback
+        traceback.print_exc()
         time.sleep(10)
