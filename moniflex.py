@@ -112,20 +112,27 @@ def db_execute(query, params=(), fetchone=False, fetchall=False, commit=False):
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Convert SQLite ? to PostgreSQL %s
+    # Convert SQLite ? to PostgreSQL %s for ALL occurrences
     if "?" in query:
         query = query.replace("?", "%s")
         
-    cur.execute(query, params)
-    result = None
-    if fetchone:
-        result = cur.fetchone()
-    if fetchall:
-        result = cur.fetchall()
-    if commit:
-        conn.commit()
-    conn.close()
-    return result
+    try:
+        cur.execute(query, params)
+        result = None
+        if fetchone:
+            result = cur.fetchone()
+        if fetchall:
+            result = cur.fetchall()
+        if commit:
+            conn.commit()
+        return result
+    except Exception as e:
+        print(f"Database error: {e}")
+        if commit:
+            conn.rollback()
+        raise e
+    finally:
+        conn.close()
 
 def insert_deposit(user_id, receipt_file_id):
     conn = get_db_connection()
