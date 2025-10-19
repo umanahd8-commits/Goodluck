@@ -35,6 +35,18 @@ HELP_SUPPORT_URL = "https://t.me/MONIFLEXBOT1"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
+# DEBUG HANDLER - Add this before all other handlers
+@bot.message_handler(func=lambda m: True)
+def debug_all_messages(m):
+    print(f"🔍 RAW MESSAGE: '{m.text}' from user {m.from_user.id}")
+    # Don't process here, let other handlers take over
+
+# Then keep your existing handlers...
+@bot.message_handler(commands=['start'])
+def handle_start(m: types.Message):
+    print(f"🔍 /start command received from user: {m.from_user.id}")
+    # ... your existing start code
+
 # ---------- DB HELPERS (POSTGRESQL FOR RENDER) ----------
 def get_db_connection():
     """Get PostgreSQL connection for Render"""
