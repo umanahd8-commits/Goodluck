@@ -5,6 +5,8 @@ import datetime
 import random
 import os
 import psycopg2
+from flask import Flask
+import threading
 
 # ---------- CONFIG ----------
 BOT_TOKEN = "8478769265:AAHZ3nZ33n1hQnvjbzPB4JxNWpNeQCxQ1zk"
@@ -1081,11 +1083,28 @@ def fallback(m):
     )
     bot.send_message(m.chat.id, txt, reply_markup=main_menu_markup_for(m.from_user.id))
 
-# ---------- START (RENDER COMPATIBLE) ----------
+# ---------- WEB SERVER FOR RENDER (FREE TIER) ----------
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 Bot is running!"
+
+def run_web_server():
+    app.run(host='0.0.0.0', port=10000)
+
+# Start web server in a separate thread
 if __name__ == "__main__":
     print("🚀 Starting Bot on Render...")
     
-    # Wait a moment for Render to fully start
+    # Start web server thread
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+    
+    # Wait a moment for web server to start
     time.sleep(2)
     
     try:
@@ -1103,5 +1122,4 @@ if __name__ == "__main__":
         
     except Exception as e:
         print(f"❌ Startup failed: {e}")
-        # Don't exit - let Render handle the restart
         time.sleep(10)
